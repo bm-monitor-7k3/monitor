@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="description" content="Status of trading bots, read from a private repository with a key kept on this device.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Bot Monitor</title>
+<style>
+:root{
+  --bg:#f3f5f8;--card:#fff;--card2:#f6f8fb;--text:#121826;--mute:#667085;--line:#e4e8ee;
+  --good:#12803f;--good-bg:rgba(18,128,63,.12);--bad:#c0262d;--bad-bg:rgba(192,38,45,.12);--warn:#b45309;--warn-bg:rgba(180,83,9,.12);
+  --accent:#3b6fd4;--shadow:0 1px 2px rgba(16,24,40,.06),0 6px 18px rgba(16,24,40,.06);
+  --botA:#2563eb;--botB:#7c3aed;--botC:#d97706;--botD:#059669;--botE:#db2777;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0b0e13;--card:#141922;--card2:#10151c;--text:#e8ebf0;--mute:#8a94a6;--line:#242c38;
+  --good:#3ddc84;--good-bg:rgba(61,220,132,.14);--bad:#ff6b6b;--bad-bg:rgba(255,107,107,.14);--warn:#fbbf24;--warn-bg:rgba(251,191,36,.14);
+  --accent:#7aa2f7;--shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.3);
+  --botA:#60a5fa;--botB:#a78bfa;--botC:#fbbf24;--botD:#34d399;--botE:#f472b6;
+}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0}
+body{color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh;
+  background:radial-gradient(700px 300px at 0% -5%,color-mix(in srgb,var(--botA) 16%,transparent),transparent 70%),radial-gradient(600px 300px at 100% -5%,color-mix(in srgb,var(--botE) 12%,transparent),transparent 70%),var(--bg);background-attachment:fixed}
+.num{font-variant-numeric:tabular-nums}
+.good{color:var(--good)}.bad{color:var(--bad)}.mute{color:var(--mute)}.warn{color:var(--warn)}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;background:color-mix(in srgb,var(--card) 85%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.logo{width:34px;height:34px;border-radius:10px;flex:none;background:conic-gradient(from 210deg,var(--botA),var(--botB),var(--botE),var(--botC),var(--botD),var(--botA))}
+header h1{font-size:17px;margin:0;line-height:1.1}
+header .sub{font-size:12px;color:var(--mute)}
+header .grow{flex:1;min-width:0}
+.icon{border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:11px;width:40px;height:40px;font-size:18px;display:grid;place-items:center;cursor:pointer}
+.icon.spin{animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+main{max-width:680px;margin:0 auto;padding:14px 16px calc(40px + env(safe-area-inset-bottom));display:grid;gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+.card>h2{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--mute);margin:0;padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pad{padding:14px 16px}
+.chip{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:650}
+.chip.good{background:var(--good-bg);color:var(--good)}.chip.bad{background:var(--bad-bg);color:var(--bad)}.chip.flat{background:var(--card2);color:var(--mute);border:1px solid var(--line)}
+.banner{border-radius:12px;padding:10px 14px;font-size:13px}
+.banner.warn{background:var(--warn-bg);color:var(--warn)}.banner.bad{background:var(--bad-bg);color:var(--bad)}
+.total{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.total .big{font-size:30px;font-weight:780;letter-spacing:-.02em}
+.botcard{position:relative;background:var(--card);border:1px solid var(--line);border-top:4px solid var(--c);border-radius:16px;padding:14px 16px 12px;box-shadow:var(--shadow);overflow:hidden;cursor:pointer;display:grid;gap:8px}
+.botcard::before{content:"";position:absolute;inset:0;background:linear-gradient(160deg,color-mix(in srgb,var(--c) 15%,transparent),transparent 55%);pointer-events:none}
+.botcard>*{position:relative}
+.bc-top{display:flex;align-items:center;gap:10px}
+.badge{width:34px;height:34px;border-radius:10px;background:var(--c);color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
+.bc-name{font-weight:720}
+.bc-desc{font-size:12px;color:var(--mute)}
+.bc-net{margin-left:auto;text-align:right}
+.bc-net b{font-size:22px;letter-spacing:-.01em}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);padding-top:8px}
+.stats div{display:flex;flex-direction:column}.stats b{font-size:15px}.stats span{font-size:11px;color:var(--mute)}
+.foot{font-size:11.5px;color:var(--mute)}
+.spark{width:100%;height:36px;display:block}
+.seg{display:flex;gap:4px}
+.seg button{border:1px solid var(--line);background:var(--card2);color:var(--mute);border-radius:8px;padding:3px 10px;font:inherit;font-size:12px;text-transform:none;letter-spacing:0;cursor:pointer}
+.seg button.act{color:var(--text);border-color:var(--accent);background:var(--card)}
+.legend{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px 0}
+.legend button{font:inherit;font-size:12.5px;font-weight:650;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:99px;padding:4px 10px;cursor:pointer}
+.legend button i{width:12px;height:4px;border-radius:2px;background:var(--c)}
+.legend button.off{opacity:.4;text-decoration:line-through}
+#chartwrap{position:relative;padding:4px 6px 6px}
+#chart{width:100%;height:240px;display:block;touch-action:pan-y}
+.tip{position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font-size:12px;box-shadow:var(--shadow);display:none;white-space:nowrap;z-index:3}
+.tip .tr{display:flex;align-items:center;gap:7px;justify-content:space-between}.tip i{width:9px;height:9px;border-radius:50%;background:var(--c)}
+.note{padding:10px 16px;color:var(--mute);font-size:12px;border-top:1px solid var(--line)}
+.list{display:grid}
+.row{display:flex;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .l{flex:1;min-width:0}.row .r{text-align:right}
+.row .t{font-weight:650}.row .s{font-size:12px;color:var(--mute);overflow:hidden;text-overflow:ellipsis}
+.empty{padding:18px 16px;color:var(--mute);text-align:center;font-size:13px}
+.grid2{display:grid;grid-template-columns:1fr 1fr}
+.kv{padding:10px 16px;border-top:1px solid var(--line)}
+.kv:nth-child(odd){border-right:1px solid var(--line)}
+.kv span{display:block;font-size:12px;color:var(--mute)}.kv b{font-size:16px}
+.back{display:flex;align-items:center;gap:10px}
+.btn{text-decoration:none;display:inline-block;font:inherit;font-weight:650;border-radius:11px;padding:10px 14px;border:1px solid var(--line);background:var(--card2);color:var(--text);cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn:disabled{opacity:.5}
+input{width:100%;font:inherit;padding:11px 12px;border-radius:11px;border:1px solid var(--line);background:var(--card2);color:var(--text)}
+label{display:block;font-size:13px;color:var(--mute);margin:12px 0 6px}
+ol{margin:6px 0 0;padding-left:20px}ol li{margin:4px 0}
+pre{margin:0;padding:10px 16px;font:12px/1.6 ui-monospace,Consolas,monospace;white-space:pre-wrap;color:var(--mute)}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:12px;padding:10px 16px;font-size:13px;display:none;z-index:20;max-width:90vw}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo" aria-hidden="true"></div>
+  <div class="grow"><h1 id="title">Bot Monitor</h1><div class="sub" id="sub">loading…</div></div>
+  <button class="icon" id="refresh" title="Refresh" aria-label="Refresh">⟳</button>
+  <button class="icon" id="gear" title="Settings" aria-label="Settings">⚙</button>
+</header>
+<main id="home"></main>
+<main id="detail" class="hidden"></main>
+<main id="settings" class="hidden"></main>
+<div id="toast"></div>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money=(n,sign=true)=>n==null?"–":(n<0?"−":(sign&&n>0?"+":""))+"$"+Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct=(n)=>n==null?"–":(n>0?"+":n<0?"−":"")+Math.abs(n).toFixed(2)+"%";
+const sgn=n=>n>0?"good":n<0?"bad":"mute";
+const chip=n=>'<span class="chip '+(n>0?"good":n<0?"bad":"flat")+'">'+pct(n)+'</span>';
+const ago=t=>{const m=Math.round((Date.now()-new Date(t).getTime())/60000);return m<1?"just now":m<60?m+" min ago":m<1440?Math.floor(m/60)+"h "+(m%60)+"m ago":Math.floor(m/1440)+"d ago";};
+const fmt=n=>n==null?"–":Math.abs(n)>=1000?Number(n).toLocaleString("en-US",{maximumFractionDigits:2}):String(n);
+const COL={A:"var(--botA)",B:"var(--botB)",C:"var(--botC)",D:"var(--botD)",E:"var(--botE)"};
+const PAL=["var(--botA)","var(--botB)","var(--botC)","var(--botD)","var(--botE)","#0891b2","#e11d48"];
+const color=(id,i)=>COL[id]||PAL[i%PAL.length];
+const store={get:(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:v;}catch(e){return d;}},set:(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}},del:k=>{try{localStorage.removeItem(k);}catch(e){}}};
+function toast(m,ms=4000){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',ms);}
+
+let DATA=null,RANGE=store.get('range','All'),HIDDEN={};try{HIDDEN=JSON.parse(store.get('hidden','{}'));}catch(e){}
+const RANGES={"1W":7*864e5,"1M":30*864e5,"3M":91*864e5,"All":Infinity};
+const repo=()=>store.get('repo','');
+const token=()=>store.get('token','');
+const gh=(path,opt={})=>fetch('https://api.github.com/repos/'+repo()+path,{cache:'no-store',...opt,headers:{'Authorization':'Bearer '+token(),'X-GitHub-Api-Version':'2022-11-28',...(opt.headers||{})}});
+
+async function load(manual){
+  if(!token()||!repo()){show('settings');renderSettings('Add your repository and GitHub key to start.');return;}
+  $('refresh').classList.add('spin');
+  try{
+    const r=await gh('/contents/app-status.json',{headers:{'Accept':'application/vnd.github.raw+json'}});
+    if(r.status===401)throw new Error('the GitHub key was rejected (401): check it in Settings');
+    if(r.status===404)throw new Error('app-status.json not found (404): wrong repository, key without access, or no bot run since the app was added');
+    if(!r.ok)throw new Error('GitHub said '+r.status);
+    DATA=await r.json();store.set('cache',JSON.stringify(DATA));
+    if(manual)toast('Updated');
+  }catch(e){
+    const c=store.get('cache','');if(c&&!DATA){try{DATA=JSON.parse(c);}catch(_){}}
+    toast('Could not refresh: '+e.message,6000);
+  }finally{$('refresh').classList.remove('spin');}
+  render();
+}
+
+function show(view){for(const v of ['home','detail','settings'])$(v).classList.toggle('hidden',v!==view);window.scrollTo(0,0);}
+function current(){return location.hash.startsWith('#bot-')?'detail':location.hash==='#settings'?'settings':'home';}
+addEventListener('hashchange',render);
+
+function render(){
+  const v=current();
+  if(v==='settings'){show('settings');renderSettings();return;}
+  if(!DATA){$('sub').textContent=token()?'loading…':'no key yet';show('home');$('home').innerHTML='<div class="empty">'+(token()?'Loading…':'Open Settings (⚙) and add your GitHub key.')+'</div>';return;}
+  const age=(Date.now()-new Date(DATA.generatedAt).getTime())/36e5;
+  $('sub').innerHTML='updated '+esc(ago(DATA.generatedAt))+' · '+(DATA.account==='real'?'<b class="bad">REAL MONEY</b>':'demo');
+  if(v==='detail'){const b=DATA.bots.find(x=>'#bot-'+x.id===location.hash);if(b){show('detail');renderDetail(b,DATA.bots.indexOf(b),age);return;}}
+  show('home');renderHome(age);
+}
+
+function spark(series,c){
+  const pts=(series||[]).filter(p=>p.t>=Date.now()-RANGES[RANGE]);if(pts.length<2)return'';
+  const W=300,H=36,t0=pts[0].t,t1=pts.at(-1).t;let lo=Math.min(0,...pts.map(p=>p.v)),hi=Math.max(0,...pts.map(p=>p.v));if(hi-lo<1){hi+=.5;lo-=.5;}
+  const x=t=>(t-t0)/(t1-t0||1)*W,y=v=>3+(hi-v)/(hi-lo)*(H-6);let d='';pts.forEach((p,i)=>{d+=i?'H'+x(p.t).toFixed(1)+'V'+y(p.v).toFixed(1):'M0,'+y(p.v).toFixed(1);});
+  return '<svg class="spark" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none"><line x1="0" x2="'+W+'" y1="'+y(0)+'" y2="'+y(0)+'" style="stroke:var(--line)" stroke-dasharray="3 3"/><path d="'+d+'" fill="none" style="stroke:'+c+'" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>';
+}
+
+function renderHome(age){
+  const bots=DATA.bots,tot=bots.reduce((a,b)=>a+b.summary.net,0),bud=bots.reduce((a,b)=>a+b.summary.budget,0);
+  const best=Math.max(...bots.map(b=>b.summary.net)),lead=bots.some(b=>b.summary.net!==best);
+  let h='';
+  if(age>8)h+='<div class="banner warn">These figures are '+Math.floor(age)+' hours old: no bot run since then (normal at weekends for the dip-buy bots).</div>';
+  h+='<div class="card pad total"><div><div class="mute" style="font-size:12px;text-transform:uppercase;letter-spacing:.07em">All bots together</div><div class="big num '+sgn(tot)+'">'+money(tot)+'</div><div class="mute" style="font-size:13px">on '+money(bud,false)+' · '+bots.length+' bots</div></div>'+chip(bud?tot/bud*100:0)+'</div>';
+  h+=bots.map((b,i)=>{const s=b.summary,c=color(b.id,i);
+    return '<a class="botcard" href="#bot-'+esc(b.id)+'" style="--c:'+c+';text-decoration:none;color:inherit"><div class="bc-top"><span class="badge">'+esc(b.id)+'</span><div style="min-width:0"><div class="bc-name">Bot '+esc(b.id)+(lead&&s.net===best?' 🏆':'')+'</div><div class="bc-desc">'+esc(b.desc)+'</div></div><div class="bc-net"><b class="num '+sgn(s.net)+'">'+money(s.net)+'</b><div>'+chip(s.roiPct)+'</div></div></div>'+
+      spark(b.series,c)+
+      '<div class="stats"><div><b class="num">'+s.closedCount+'</b><span>closed</span></div><div><b class="num">'+(s.winRate==null?'–':Math.round(s.winRate)+'%')+'</b><span>win rate</span></div><div><b class="num">'+s.openCount+'</b><span>open</span></div><div><b class="num">'+b.pending.length+'</b><span>pending</span></div></div>'+
+      '<div class="foot">'+(b.tradingEnabled?'<span class="good">● trading</span>':'<span class="warn">○ paused</span>')+' · value '+money(s.valueNow,false)+' · last check '+(b.lastRunAt?esc(ago(b.lastRunAt)):'not yet')+'</div></a>';}).join('');
+  h+='<div class="card"><h2>Profit / loss over time <span class="seg" id="ranges">'+Object.keys(RANGES).map(k=>'<button data-r="'+k+'" class="'+(k===RANGE?'act':'')+'">'+k+'</button>').join('')+'</span></h2><div class="legend" id="legend"></div><div id="chartwrap"><svg id="chart"></svg><div class="tip" id="tip"></div></div><div class="note">Steps when trades close; between runs the line is flat. Dashed line = break-even.</div></div>';
+  h+='<div class="card"><h2>Last runs on GitHub</h2>'+(DATA.runLog&&DATA.runLog.length?'<pre>'+DATA.runLog.slice(0,12).map(l=>esc(l.replace(/workflow_dispatch manual/,'started by cron-job / button').replace(/schedule /,'GitHub schedule '))).join('\n')+'</pre>':'<div class="empty">No runs logged yet.</div>')+'</div>';
+  $('home').innerHTML=h;
+  $('ranges').onclick=e=>{const r=e.target.dataset.r;if(r){RANGE=r;store.set('range',r);renderHome(age);}};
+  drawChart();
+}
+
+function valAt(pts,t){let v=0;for(const p of pts){if(p.t>t)break;v=p.v;}return v;}
+function drawChart(){
+  const bots=DATA.bots,svg=$('chart');if(!svg)return;
+  $('legend').innerHTML=bots.map((b,i)=>'<button data-bot="'+esc(b.id)+'" class="'+(HIDDEN[b.id]?'off':'')+'" style="--c:'+color(b.id,i)+'"><i></i>'+esc(b.id)+' <span class="num '+sgn(b.summary.net)+'">'+money(b.summary.net)+'</span></button>').join('');
+  $('legend').onclick=e=>{const k=e.target.closest('button');if(!k)return;HIDDEN[k.dataset.bot]=!HIDDEN[k.dataset.bot];store.set('hidden',JSON.stringify(HIDDEN));drawChart();};
+  const W=svg.clientWidth||340,H=240,pad={l:46,r:10,t:12,b:22};
+  const now=new Date(DATA.generatedAt).getTime(),start=Math.min(...bots.map(b=>b.series[0]?b.series[0].t:now));
+  const t0=Math.max(start,now-RANGES[RANGE]),t1=now,span=t1-t0;
+  const lines=bots.map((b,i)=>({b,c:color(b.id,i),pts:b.series})).filter(l=>!HIDDEN[l.b.id]&&l.pts.length).map(l=>({...l,seg:[{t:t0,v:valAt(l.pts,t0)}].concat(l.pts.filter(p=>p.t>t0&&p.t<=t1),[{t:t1,v:l.b.summary.net}])}));
+  if(!lines.length||span<60e3){svg.setAttribute('viewBox','0 0 '+W+' '+H);svg.innerHTML='<text x="'+W/2+'" y="'+H/2+'" text-anchor="middle" style="fill:var(--mute)" font-size="13">'+(lines.length?'Not enough history yet.':'All bots hidden: tap a name.')+'</text>';return;}
+  const all=lines.flatMap(l=>l.seg.map(p=>p.v));let lo=Math.min(0,...all),hi=Math.max(0,...all);if(hi-lo<2){hi+=1;lo-=1;}const pv=(hi-lo)*.12;hi+=pv;lo-=pv;
+  const x=t=>pad.l+(t-t0)/span*(W-pad.l-pad.r),y=v=>pad.t+(hi-v)/(hi-lo)*(H-pad.t-pad.b);
+  let g='';for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4;g+='<line x1="'+pad.l+'" x2="'+(W-pad.r)+'" y1="'+y(v)+'" y2="'+y(v)+'" style="stroke:var(--line)"/><text x="'+(pad.l-6)+'" y="'+(y(v)+4)+'" text-anchor="end" style="fill:var(--mute)" font-size="10">'+(v<0?'−':'')+'$'+Math.abs(v).toFixed(hi-lo<20?1:0)+'</text>';}
+  g+='<line x1="'+pad.l+'" x2="'+(W-pad.r)+'" y1="'+y(0)+'" y2="'+y(0)+'" style="stroke:var(--mute)" stroke-dasharray="4 3"/>';
+  const fd=t=>new Date(t).toLocaleDateString([],{month:'short',day:'numeric'});
+  g+='<text x="'+pad.l+'" y="'+(H-6)+'" style="fill:var(--mute)" font-size="10">'+fd(t0)+'</text><text x="'+(W-pad.r)+'" y="'+(H-6)+'" text-anchor="end" style="fill:var(--mute)" font-size="10">'+fd(t1)+'</text>';
+  for(const l of lines){let d='';l.seg.forEach((p,i)=>{d+=i?'H'+x(p.t).toFixed(1)+'V'+y(p.v).toFixed(1):'M'+x(p.t).toFixed(1)+','+y(p.v).toFixed(1);});
+    g+='<path d="'+d+'" fill="none" style="stroke:'+l.c+'" stroke-width="2.4" stroke-linejoin="round"/>';
+    for(const p of l.seg)if(p.closed)g+='<circle cx="'+x(p.t)+'" cy="'+y(p.v)+'" r="2.8" style="fill:'+l.c+';stroke:var(--card)" stroke-width="1.2"/>';
+    const e=l.seg.at(-1);g+='<circle cx="'+x(e.t)+'" cy="'+y(e.v)+'" r="4.5" style="fill:'+l.c+';stroke:var(--card)" stroke-width="2"/>';}
+  g+='<line id="xl" y1="'+pad.t+'" y2="'+(H-pad.b)+'" style="stroke:var(--mute);display:none"/>';
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);svg.innerHTML=g;
+  const tip=$('tip'),xl=$('xl');
+  const move=cx=>{const rc=svg.getBoundingClientRect(),mx=(cx-rc.left)*W/rc.width,t=Math.max(t0,Math.min(t1,t0+(mx-pad.l)/(W-pad.l-pad.r)*span));
+    xl.setAttribute('x1',x(t));xl.setAttribute('x2',x(t));xl.style.display='';
+    tip.innerHTML='<div class="mute" style="margin-bottom:3px">'+new Date(t).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})+'</div>'+lines.map(l=>({l,v:valAt(l.seg,t)})).sort((a,b)=>b.v-a.v).map(o=>'<div class="tr" style="--c:'+o.l.c+'"><span style="display:flex;gap:6px;align-items:center"><i></i>Bot '+esc(o.l.b.id)+'</span><b class="num '+sgn(o.v)+'">'+money(o.v)+'</b></div>').join('');
+    tip.style.display='block';tip.style.top='14px';const left=x(t)*rc.width/W;tip.style.left=Math.max(4,Math.min(left+12,rc.width-tip.offsetWidth-4))+'px';};
+  svg.onpointermove=e=>move(e.clientX);svg.onpointerdown=e=>move(e.clientX);
+  svg.onpointerleave=()=>{tip.style.display='none';xl.style.display='none';};
+}
+
+function renderDetail(b,i,age){
+  const s=b.summary,c=color(b.id,i);
+  let h='<div class="back"><a class="btn" href="#">‹ All bots</a><span class="badge" style="background:'+c+'">'+esc(b.id)+'</span><div><div class="bc-name">Bot '+esc(b.id)+'</div><div class="bc-desc">'+esc(b.desc)+'</div></div></div>';
+  h+='<div class="card" style="border-top:4px solid '+c+'"><div class="pad"><div class="mute" style="font-size:12px;text-transform:uppercase;letter-spacing:.07em">Profit / loss on '+money(s.budget,false)+'</div><div class="num '+sgn(s.net)+'" style="font-size:34px;font-weight:780">'+money(s.net)+'</div>'+chip(s.roiPct)+' <span class="mute" style="font-size:13px">since '+esc(new Date(s.since).toLocaleDateString())+'</span></div>'+
+    '<div class="grid2">'+[['Value if closed now',money(s.valueNow,false)],['In open trades',money(s.openInvested,false)],['Realized (closed)',money(s.realized)],['Unrealized (open)',money(s.unrealized)],['Closed trades',s.closedCount+(s.winRate==null?'':' · '+Math.round(s.winRate)+'% won')],['Avg per trade',s.avgTradePct==null?'–':pct(s.avgTradePct)],['Broker fees paid',money(-(s.feesPaid||0))],['New trades',(b.tradingEnabled?'ON':'OFF')+' · stop at −'+b.maxLossPct+'%']].map(k=>'<div class="kv"><span>'+k[0]+'</span><b class="num">'+k[1]+'</b></div>').join('')+'</div></div>';
+  h+='<div class="card"><h2>Open positions <span>'+b.positions.length+'</span></h2><div class="list">'+(b.positions.length?b.positions.map(p=>'<div class="row"><div class="l"><div class="t">'+esc(p.name)+'</div><div class="s">'+money(p.amount,false)+' · bought '+fmt(p.openRate)+' · now '+fmt(p.now)+' · stop '+fmt(p.stop)+'</div></div><div class="r"><b class="num '+sgn(p.pnl)+'">'+money(p.pnl)+'</b><div class="s">'+(p.amount?pct(p.pnl/p.amount*100):'')+'</div></div></div>').join(''):'<div class="empty">No open positions.</div>')+'</div></div>';
+  if(b.pending.length)h+='<div class="card"><h2>Pending buy orders</h2><div class="list">'+b.pending.map(p=>'<div class="row"><div class="l"><div class="t">'+esc(p.asset)+'</div><div class="s">buys if it dips to '+fmt(p.trigger)+' · stop '+fmt(p.stop)+'</div></div><div class="r"><b class="num">'+money(p.amount,false)+'</b><div class="s">x'+esc(p.leverage)+' · '+esc(p.placedDay)+'</div></div></div>').join('')+'</div></div>';
+  h+='<div class="card"><h2>Last check <span>'+(b.lastRunAt?esc(ago(b.lastRunAt)):'not yet')+'</span></h2><div class="list">'+(b.lastSignals.length?b.lastSignals.map(x=>'<div class="row"><div class="l"><div class="t">'+esc(x.asset)+'</div><div class="s" style="white-space:normal">'+esc(x.action)+'</div></div></div>').join(''):'<div class="empty">'+(b.mode==='crypto'?'No crypto check yet.':'No dip signals at the last check.')+'</div>')+'</div></div>';
+  h+='<div class="card"><h2>Closed trades</h2><div class="list">'+(b.closedTrades.length?b.closedTrades.map(t=>'<div class="row"><div class="l"><div class="t">'+esc(t.asset)+'</div><div class="s">'+fmt(t.openRate)+' → '+fmt(t.closeRate)+' · '+esc(ago(t.closedAt))+'</div></div><div class="r"><b class="num '+sgn(t.net)+'">'+money(t.net)+'</b><div class="s">'+(t.invested?pct(t.net/t.invested*100):'')+'</div></div></div>').join(''):'<div class="empty">No closed trades yet.</div>')+'</div></div>';
+  $('detail').innerHTML=h;
+}
+
+function renderSettings(msg){
+  const has=!!token();
+  $('settings').innerHTML='<div class="back"><a class="btn" href="#">‹ Back</a><b>Settings</b></div>'+(msg?'<div class="banner warn">'+esc(msg)+'</div>':'')+
+   '<div class="card pad"><b>GitHub key</b><div class="mute" style="font-size:13px">Stored only on this phone. The app reads <code>app-status.json</code> from your private repository.</div>'+
+   '<label for="repo">Repository (owner/name)</label><input id="repo" value="'+esc(repo())+'" placeholder="owner/repository" autocapitalize="off" autocomplete="off">'+
+   '<label for="tok">Key (github_pat_…)</label><input id="tok" type="password" placeholder="'+(has?'saved: leave empty to keep it':'paste your key')+'" autocapitalize="off" autocomplete="off">'+
+   '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn primary" id="save">Save &amp; load</button>'+(has?'<button class="btn" id="forget">Forget key</button>':'')+'</div></div>'+
+   '<div class="card pad"><b>Run the bots now</b><div class="mute" style="font-size:13px">Starts the GitHub workflow (like cron-job.org does). Outside 21:45 the dip-buy bots only refresh their status; new figures appear after about 2 minutes. Needs the key to have <b>Actions: Read and write</b>.</div><div style="margin-top:12px"><button class="btn" id="runnow"'+(has?'':' disabled')+'>▶ Run now</button></div></div>'+
+   '<div class="card pad"><b>How to make the key</b><ol class="mute" style="font-size:13px"><li>GitHub › profile picture › Settings › Developer settings › Personal access tokens › <b>Fine-grained tokens</b> › Generate new token</li><li>Name <i>phone app</i>, expiration 1 year, repository access: <b>Only select repositories › your bot repository</b></li><li>Repository permissions: <b>Contents: Read-only</b> and (for Run now) <b>Actions: Read and write</b></li><li>Generate, copy, paste above. Don\'t share it.</li></ol></div>'+
+   '<div class="mute" style="font-size:12px;text-align:center">Install: Chrome menu ⋮ › <b>Add to Home screen</b></div>';
+  $('save').onclick=()=>{const r=$('repo').value.trim(),t=$('tok').value.trim();if(r)store.set('repo',r);if(t)store.set('token',t);if(!token()||!repo()){toast('Enter the repository and paste a key first');return;}location.hash='';load(true);};
+  if($('forget'))$('forget').onclick=()=>{store.del('token');store.del('cache');DATA=null;renderSettings('Key removed from this phone.');};
+  $('runnow').onclick=async()=>{const b=$('runnow');b.disabled=true;try{const r=await gh('/actions/workflows/swing.yml/dispatches',{method:'POST',headers:{'Accept':'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify({ref:'main',inputs:{test_message:'false'}})});
+    if(r.status===204){toast('Started. New figures in about 2 minutes.',6000);setTimeout(()=>load(),150000);}else toast(r.status===403||r.status===404?'The key needs Actions: Read and write ('+r.status+')':'GitHub said '+r.status,6000);}catch(e){toast('Failed: '+e.message);}setTimeout(()=>b.disabled=false,5000);};
+}
+
+$('refresh').onclick=()=>load(true);
+$('gear').onclick=()=>{location.hash=location.hash==='#settings'?'':'settings';};
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&DATA&&Date.now()-(load.at||0)>60000){load.at=Date.now();load();}});
+addEventListener('resize',()=>{if(current()==='home'&&DATA)drawChart();});
+try{const c=store.get('cache','');if(c)DATA=JSON.parse(c);}catch(e){}
+render();load.at=Date.now();load();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
