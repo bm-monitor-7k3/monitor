@@ -104,6 +104,8 @@ pre{margin:0;padding:10px 16px;font:12px/1.6 ui-monospace,Consolas,monospace;whi
 .subh{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);font-weight:650;padding:12px 16px 4px;border-top:1px solid var(--line)}
 .mini{display:flex;justify-content:space-between;gap:10px;padding:7px 16px;font-size:13px;border-top:1px solid var(--line)}
 .mini .s{color:var(--mute);font-size:12px}
+.pill{display:inline-block;font-size:11px;font-weight:700;padding:0 7px;border-radius:6px;background:var(--card2);border:1px solid var(--line)}
+.pill.good{background:var(--good-bg);color:var(--good);border-color:transparent}.pill.bad{background:var(--bad-bg);color:var(--bad);border-color:transparent}.pill.warn{background:var(--warn-bg);color:var(--warn);border-color:transparent}
 </style>
 </head>
 <body>
@@ -193,6 +195,43 @@ function renderSignals(sc){
   h+='<div class="note">Buy only if the price reaches the buy level (a limit order, valid until the next day’s close): in our tests that made each trade about 3× as profitable as buying straight away. On a € broker, use the % below the current price. The bots decide on the 21:45 price (German time). Fresh figures: ⚙ › Run now. Not investment advice.</div></div>';
   return h;
 }
+function renderMyTrades(mt){
+  const ue=v=>v?'<b>$'+p2v(v.usd)+'</b> <span class="mute">€'+p2v(v.eur)+'</span>':'–';
+  const trades=(mt&&mt.trades)||[],open=trades.filter(t=>t.status==='open'),closed=trades.filter(t=>t.status!=='open');
+  let h='<div class="card" id="mtcard"><h2>My trades <span>'+(mt?esc(ago(mt.at)):'')+'</span></h2>';
+  h+=open.length?open.map(t=>'<details class="sig"><summary><div class="l"><div class="t">'+esc(t.name)+'</div><div class="s"><span class="pill '+(t.tone||'mute')+'">'+esc(t.verdict||'')+'</span> day '+(t.daysHeld==null?'–':t.daysHeld)+' of 10</div></div><div class="r num"><b class="'+(t.pnlPct>0?'good':t.pnlPct<0?'bad':'mute')+'">'+(t.pnlPct==null?'–':(t.pnlPct>0?'+':'')+t.pnlPct.toFixed(2)+'%')+'</b>'+(t.pnlEur!=null?'<div class="s">'+(t.pnlEur>=0?'+':'−')+'€'+p2v(Math.abs(t.pnlEur))+'</div>':'')+'</div></summary>'+
+    '<div class="lv"><span>Now</span><span class="num">'+ue(t.now)+'</span><span>Sell on a close above</span><span class="num">'+ue(t.sellLevel)+'</span><span>Stop</span><span class="num">'+ue(t.stop)+'</span><span>Bought</span><span class="num">'+(t.buyCurrency==='EUR'?'€':'$')+p2v(t.buyPrice)+(t.qty?' × '+t.qty:'')+' · '+esc(t.boughtAt)+'</span>'+
+    '<span style="grid-column:1/-1;color:var(--text)">'+esc(t.text||'')+'</span><span style="grid-column:1/-1;display:flex;gap:8px"><button class="btn" data-sell="'+esc(t.id)+'" data-cur="'+esc(t.buyCurrency)+'" data-name="'+esc(t.name)+'">Sold…</button><button class="btn" data-del="'+esc(t.id)+'" data-name="'+esc(t.name)+'">Delete</button></span></div></details>').join('')
+    :'<div class="empty">No open trades. Add one you bought on your broker below.</div>';
+  if(closed.length)h+='<div class="subh">Closed</div>'+closed.slice(-8).reverse().map(t=>'<div class="mini"><span><b>'+esc(t.name)+'</b> <span class="s">'+esc(t.boughtAt)+' → '+esc(t.closedAt||'')+'</span></span><span class="num '+(t.pnlPct>0?'good':t.pnlPct<0?'bad':'mute')+'">'+(t.pnlPct==null?'–':(t.pnlPct>0?'+':'')+t.pnlPct.toFixed(2)+'%')+'</span></div>').join('');
+  h+='<form id="mtform" class="pad" style="display:grid;gap:8px;border-top:1px solid var(--line)"><b style="font-size:13px">Add a trade you bought</b>'+
+    '<input id="mtsym" placeholder="Stock: symbol or name, e.g. NVDA" autocomplete="off" required>'+
+    '<div style="display:grid;grid-template-columns:1fr auto;gap:8px"><input id="mtprice" inputmode="decimal" placeholder="Buy price, e.g. 199.50" required><select id="mtcur" style="font:inherit;padding:10px;border-radius:11px;border:1px solid var(--line);background:var(--card2);color:var(--text)"><option value="EUR">€</option><option value="USD">$</option></select></div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><input id="mtdate" type="date"><input id="mtqty" inputmode="decimal" placeholder="Shares (optional)"></div>'+
+    '<button class="btn primary" type="submit">Add</button><div class="mute" style="font-size:12px">Saved through GitHub: it shows here after about 2 minutes. Checked with the bots’ sell rules after every run; Telegram list each evening.</div></form>';
+  return h+'</div>';
+}
+const p2v=n=>n==null?'–':Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const cleanv=v=>String(v==null?'':v).split('|').join(' ').trim();
+async function tradeDispatch(cmd,msg){
+  try{const r=await gh('/actions/workflows/swing.yml/dispatches',{method:'POST',headers:{'Accept':'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify({ref:'main',inputs:{test_message:'false',trade:cmd}})});
+    if(r.status===204){toast(msg+': shows in about 2 minutes.',6000);setTimeout(()=>load(),150000);return true;}
+    toast(r.status===403||r.status===404?'The key needs Actions: Read and write ('+r.status+')':'GitHub said '+r.status,6000);}
+  catch(e){toast('Failed: '+e.message);}
+  return false;
+}
+document.addEventListener('submit',async e=>{
+  if(e.target.id!=='mtform')return;e.preventDefault();
+  const v=id=>cleanv($(id).value);
+  const cmd=['add',v('mtsym'),v('mtprice').replace(',','.'),v('mtcur'),v('mtdate')||new Date().toISOString().slice(0,10),v('mtqty').replace(',','.'),''].join('|');
+  if(await tradeDispatch(cmd,'Saved'))e.target.reset();
+});
+document.addEventListener('click',e=>{
+  const s=e.target.closest('[data-sell]'),d=e.target.closest('[data-del]');
+  if(s){e.preventDefault();const p=prompt('Sell price for '+s.dataset.name+' (in '+(s.dataset.cur==='EUR'?'€':'$')+'):');if(p)tradeDispatch(['close',s.dataset.sell,cleanv(p).replace(',','.'),s.dataset.cur].join('|'),'Marked as sold');}
+  if(d){e.preventDefault();if(confirm('Delete '+d.dataset.name+' from My trades?'))tradeDispatch(['delete',d.dataset.del].join('|'),'Deleted');}
+});
+
 function renderHome(age){
   const bots=DATA.bots,tot=bots.reduce((a,b)=>a+b.summary.net,0),bud=bots.reduce((a,b)=>a+b.summary.budget,0);
   const best=Math.max(...bots.map(b=>b.summary.net)),lead=bots.filter(b=>b.summary.net===best).length===1;
@@ -200,6 +239,7 @@ function renderHome(age){
   if(age>8)h+='<div class="banner warn">These figures are '+Math.floor(age)+' hours old: no bot run since then (normal at weekends for the dip-buy bots).</div>';
   h+='<div class="card pad total"><div><div class="mute" style="font-size:12px;text-transform:uppercase;letter-spacing:.07em">All bots together</div><div class="big num '+sgn(tot)+'">'+money(tot)+'</div><div class="mute" style="font-size:13px">on '+money(bud,false)+' · '+bots.length+' bots</div></div>'+chip(bud?tot/bud*100:0)+'</div>';
   h+=renderSignals(DATA.scan);
+  h+=renderMyTrades(DATA.myTrades);
   h+=bots.map((b,i)=>{const s=b.summary,c=color(b.id,i);
     return '<a class="botcard" href="#bot-'+esc(b.id)+'" style="--c:'+c+';text-decoration:none;color:inherit"><div class="bc-top"><span class="badge">'+esc(b.id)+'</span><div style="min-width:0"><div class="bc-name">Bot '+esc(b.id)+(lead&&s.net===best?' 🏆':'')+'</div><div class="bc-desc">'+esc(b.desc)+'</div></div><div class="bc-net"><b class="num '+sgn(s.net)+'">'+money(s.net)+'</b><div>'+chip(s.roiPct)+'</div></div></div>'+
       spark(b.series,c)+
