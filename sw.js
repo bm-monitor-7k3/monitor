@@ -1,6 +1,6 @@
 // Keeps the app shell available offline. Bot data always comes fresh from the GitHub API (never cached here;
 // the page keeps its last copy itself).
-const CACHE = "bot-monitor-v1";
+const CACHE = "bot-monitor-v2";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });

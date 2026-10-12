@@ -90,6 +90,20 @@ ol{margin:6px 0 0;padding-left:20px}ol li{margin:4px 0}
 pre{margin:0;padding:10px 16px;font:12px/1.6 ui-monospace,Consolas,monospace;white-space:pre-wrap;color:var(--mute)}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:12px;padding:10px 16px;font-size:13px;display:none;z-index:20;max-width:90vw}
 .hidden{display:none!important}
+.sig{border-top:1px solid var(--line)}
+.sig summary{list-style:none;display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer}
+.sig summary::-webkit-details-marker{display:none}
+.sig summary .l{flex:1;min-width:0}
+.sig summary .t{font-weight:650}
+.sig summary .s{font-size:12px;color:var(--mute)}
+.sig summary .r{text-align:right;font-size:13px}
+.sig[open] summary{background:var(--card2)}
+.sig .lv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;padding:4px 16px 12px;font-size:13px;background:var(--card2)}
+.sig .lv span:nth-child(odd){color:var(--mute)}
+.rank{display:inline-block;font-size:11px;font-weight:700;padding:0 6px;border-radius:6px;background:var(--good-bg);color:var(--good);margin-left:4px}
+.subh{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);font-weight:650;padding:12px 16px 4px;border-top:1px solid var(--line)}
+.mini{display:flex;justify-content:space-between;gap:10px;padding:7px 16px;font-size:13px;border-top:1px solid var(--line)}
+.mini .s{color:var(--mute);font-size:12px}
 </style>
 </head>
 <body>
@@ -162,12 +176,30 @@ function spark(series,c){
   return '<svg class="spark" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none"><line x1="0" x2="'+W+'" y1="'+y(0)+'" y2="'+y(0)+'" style="stroke:var(--line)" stroke-dasharray="3 3"/><path d="'+d+'" fill="none" style="stroke:'+c+'" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>';
 }
 
+const GRP={'us-tech':'Tech','us-finance':'Finance','us-health':'Health','us-consumer':'Consumer','us-industrial':'Industrial','us-energy':'Energy','us-index':'Index','metals':'Metal'};
+function renderSignals(sc){
+  if(!sc)return '<div class="card"><h2>Today\'s signals</h2><div class="empty">Appears after the next bot run (or tap ⚙ › Run now).</div></div>';
+  const p2=n=>n==null?'–':Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fx=sc.eurusd,ue=v=>v==null?'–':'<b>$'+p2(v)+'</b> <span class="mute">€'+(fx?p2(Number((v/fx).toFixed(2))):'–')+'</span>';
+  const sect={};for(const s of sc.signals){const g=GRP[s.group]||s.group;sect[g]=(sect[g]||0)+1;}
+  const top=Object.entries(sect).sort((a,b)=>b[1]-a[1])[0];
+  let h='<div class="card"><h2>Today\'s signals <span>'+esc(new Date(sc.at).toLocaleString([],{weekday:'short',hour:'2-digit',minute:'2-digit'}))+'</span></h2>';
+  h+='<div class="pad" style="padding-bottom:8px;font-size:13px"><b>'+sc.signals.length+'</b> buy signal'+(sc.signals.length===1?'':'s')+' · <b>'+sc.near.length+'</b> close · '+sc.counts.up+' up / '+sc.counts.down+' down <span class="mute">(dip-buy rule, '+sc.scanned+' markets, prices at the last bot run)</span>'+
+    (top&&top[1]>=3&&top[1]>=sc.signals.length*0.6?'<div class="banner warn" style="margin-top:8px">'+top[1]+' of '+sc.signals.length+' are '+esc(top[0])+' stocks: they move together, so several of them are close to one bigger bet.</div>':'')+'</div>';
+  h+=sc.signals.length?sc.signals.map((s,i)=>'<details class="sig"><summary><div class="l"><div class="t">'+esc(s.name)+(i<4?'<span class="rank">#'+(i+1)+'</span>':'')+'</div><div class="s">'+esc(s.ticker||'')+' · '+esc(GRP[s.group]||s.group)+' · RSI(2) '+s.rsi2.toFixed(0)+'</div></div><div class="r num">'+ue(s.price)+'<div class="s">buy ≤ $'+p2(s.buyLimit)+'</div></div></summary>'+
+    '<div class="lv"><span>Buy if it dips to</span><span class="num">'+ue(s.buyLimit)+'</span><span>Stop-loss (−'+s.stopPct+'%)</span><span class="num">'+ue(s.stop)+'</span><span>Sell on a close above</span><span class="num">'+ue(s.sellAbove)+'</span><span>Daily move</span><span class="num">'+s.atrPct.toFixed(1)+'%</span></div></details>').join(''):'<div class="empty">No dip-buy signals at the last run.</div>';
+  if(sc.blocked.length)h+='<div class="subh">Skipped by the bots</div>'+sc.blocked.map(s=>'<div class="mini"><span><b>'+esc(s.name)+'</b> <span class="s">RSI(2) '+s.rsi2.toFixed(0)+'</span></span><span class="s warn">'+(s.status==='EARNINGS'?'earnings '+esc(s.earnings):'too calm ('+s.atrPct.toFixed(1)+'%/day)')+'</span></div>').join('');
+  if(sc.near.length)h+='<div class="subh">Close to a signal</div>'+sc.near.map(s=>'<div class="mini"><span><b>'+esc(s.name)+'</b> <span class="s">'+esc(GRP[s.group]||s.group)+'</span></span><span class="num" style="text-align:right">signal below '+ue(s.dipClose)+'<div class="s">'+(s.toDip>-0.05?'almost there':s.toDip.toFixed(1)+'% more drop')+(s.earnings?' · earnings '+esc(s.earnings):'')+'</div></span></div>').join('');
+  h+='<div class="note">The bots decide on the 21:45 price (German time). Fresh figures: ⚙ › Run now. Not investment advice.</div></div>';
+  return h;
+}
 function renderHome(age){
   const bots=DATA.bots,tot=bots.reduce((a,b)=>a+b.summary.net,0),bud=bots.reduce((a,b)=>a+b.summary.budget,0);
-  const best=Math.max(...bots.map(b=>b.summary.net)),lead=bots.some(b=>b.summary.net!==best);
+  const best=Math.max(...bots.map(b=>b.summary.net)),lead=bots.filter(b=>b.summary.net===best).length===1;
   let h='';
   if(age>8)h+='<div class="banner warn">These figures are '+Math.floor(age)+' hours old: no bot run since then (normal at weekends for the dip-buy bots).</div>';
   h+='<div class="card pad total"><div><div class="mute" style="font-size:12px;text-transform:uppercase;letter-spacing:.07em">All bots together</div><div class="big num '+sgn(tot)+'">'+money(tot)+'</div><div class="mute" style="font-size:13px">on '+money(bud,false)+' · '+bots.length+' bots</div></div>'+chip(bud?tot/bud*100:0)+'</div>';
+  h+=renderSignals(DATA.scan);
   h+=bots.map((b,i)=>{const s=b.summary,c=color(b.id,i);
     return '<a class="botcard" href="#bot-'+esc(b.id)+'" style="--c:'+c+';text-decoration:none;color:inherit"><div class="bc-top"><span class="badge">'+esc(b.id)+'</span><div style="min-width:0"><div class="bc-name">Bot '+esc(b.id)+(lead&&s.net===best?' 🏆':'')+'</div><div class="bc-desc">'+esc(b.desc)+'</div></div><div class="bc-net"><b class="num '+sgn(s.net)+'">'+money(s.net)+'</b><div>'+chip(s.roiPct)+'</div></div></div>'+
       spark(b.series,c)+
