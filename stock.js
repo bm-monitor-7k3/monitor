@@ -76,7 +76,7 @@ function priceRows(m, q) {
       px = q.c; src = 'live price (Finnhub)'; at = qt; live = true;
     }
   }
-  return { rows, forming, px, src, at, live };
+  return { rows, forming, px, src, at, live, q };
 }
 
 function checkMarket(m, q) {
@@ -202,10 +202,19 @@ async function stockOpen(m, quiet) {
 function renderStock(d, qerr) {
   const m = d.market, p = d.price, s = d.stats, P = d.P, res = $('sres');
   const pc = v => v == null ? '–' : '<span class="' + (v > 0 ? 'good' : v < 0 ? 'bad' : 'mute') + '">' + (v > 0 ? '+' : '') + v.toFixed(1) + '%</span>';
-  const fresh = (P.live ? '<span class="good">●</span> ' : '') + esc(P.src) + ' · ' + esc(ago(P.at));
+  // where the price comes from, and why (shown under the price)
+  const when = t => new Date(t).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  const botRun = '<b>Price from the last bot run</b> (' + esc(when(P.at)) + ', ' + esc(ago(P.at)) + ')';
+  let fresh;
+  if (P.live) fresh = '<span class="good">●</span> <b class="good">' + (m.proxy ? 'Live estimate' : 'Live from Finnhub') + '</b> · ' + esc(ago(P.at)) + (m.proxy ? '<br>last bot-run price moved like the fund ' + esc(m.proxy) + ' (live from Finnhub)' : '');
+  else if (qerr) fresh = botRun + '<br><span class="warn">' + esc(qerr) + '</span>';
+  else if (!(m.fh || m.proxy)) fresh = botRun + '<br>no live source for this market on the free Finnhub plan';
+  else if (!fhKey()) fresh = botRun + '<br>for live prices: ⚙ › Live prices (Finnhub key)';
+  else if (P.q) fresh = botRun + '<br>Finnhub’s last price: ' + esc(m.proxy || '') + ' $' + f2(P.q.c) + ' from ' + esc(when(P.q.t * 1000)) + ': ' + (m.kind === 'Crypto' ? 'older than the bot run' : 'the US market is closed (live prices 15:30–22:00 German time), so the bot run’s pre-market price is newer');
+  else fresh = botRun + '<br>Finnhub had no price for ' + esc(m.fh || m.proxy);
   let h = '<div class="shead"><div style="min-width:0;flex:1"><div class="sname">' + esc(m.name) + '</div><div class="mute" style="font-size:12.5px">' + esc(m.sym) + (m.exchange ? ' · ' + esc(m.exchange) : '') + ' · ' + esc(m.kind) + '</div></div>' +
     '<div style="text-align:right"><div class="sprice num">' + twoCur(p) + '</div><div class="mute" style="font-size:12px">' + (p.dayChangePct != null ? 'today ' + pc(p.dayChangePct) + ' · ' : '') + '1 € = $' + (p.eurusd ? p.eurusd.toFixed(4) : '–') + '</div></div></div>';
-  h += '<div class="mute" style="font-size:12px">' + fresh + (qerr ? ' · <span class="warn">' + esc(qerr) + '</span>' : !fhKey() && (m.fh || m.proxy) ? ' · add a Finnhub key in ⚙ for live prices' : '') + ' <button class="btn" data-act="again" style="padding:2px 10px;font-size:12px">⟳</button></div>';
+  h += '<div style="display:flex;gap:10px;align-items:center;font-size:12.5px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--card2)"><div style="flex:1;min-width:0">' + fresh + '</div><button class="btn" data-act="again" style="padding:4px 10px;font-size:13px" title="Get the price again">⟳</button></div>';
   h += '<div class="verdict ' + d.verdict.tone + '">' + esc(d.verdict.text) + (m.kind === 'Stocks' && m.us ? '<span class="vnote"> · the bots decide on the price at 15:45 New York (21:45 German time); during the day this can still change</span>' : '') + (!p.forming ? '<span class="vnote"> · market closed today: based on the last close (' + esc(p.lastClose) + ')</span>' : '') + '</div>';
   h += '<div class="rulegrid">' + d.rules.map(r => '<div class="rule"><div class="rh"><b>' + esc(r.name) + '</b><span class="pill ' + r.tone + '">' + esc(r.status) + '</span></div><div class="rt">' + esc(r.text) + '</div>' +
     (r.levels.length ? '<table class="lvl">' + r.levels.map(l => '<tr><td>' + esc(l.label) + (l.note ? ' <span class="mute">(' + esc(l.note) + ')</span>' : '') + '</td><td class="num">' + twoCur(l) + '</td></tr>').join('') + '</table>' : '') +
