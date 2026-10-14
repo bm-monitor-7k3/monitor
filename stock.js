@@ -177,6 +177,7 @@ function mountStock() {
       if (b.dataset.act === 'again' && SCUR) stockOpen(SCUR); };
   }
   const home = $('home'); if (home.firstChild !== SBOX) home.prepend(SBOX);
+  liveFixed();
   loadMarkets().then(() => { $('sage').textContent = 'data ' + ago(MK.at) + ' · ' + MK.markets.length + ' markets'; if (SCUR) { const m = MK.markets.find(x => x.id === SCUR.id); if (m && m !== SCUR) stockOpen(m, true); } })
     .catch(e => { $('sage').textContent = ''; if (!$('sres').innerHTML) $('sres').innerHTML = '<div class="empty">Stock check: ' + esc(e.message) + '</div>'; });
 }
@@ -268,6 +269,27 @@ function bindStockHover(d) {
   const hide = () => { tip.style.display = 'none'; g.style.display = 'none'; };
   svg.onpointermove = e => show(e.clientX); svg.onpointerdown = e => show(e.clientX); svg.onpointerleave = hide;
 }
+
+// Live prices for the fixed buy levels in Today's signals (Finnhub; at most once a minute per market)
+const fxCache = {};
+async function liveFixed() {
+  if (!fhKey() || !DATA || !DATA.scan) return;
+  try { await loadMarkets(); } catch (e) { return; }
+  const fx = DATA.scan.eurusd, p2 = n => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  for (const el of document.querySelectorAll('[data-fx]')) {
+    const m = MK.markets.find(x => x.name === el.dataset.fx); if (!m || !(m.fh || (m.proxy && m.proxyAt))) continue;
+    let c = fxCache[m.id];
+    if (!c || Date.now() - c.at > 60000) { try { c = { at: Date.now(), q: await liveQuote(m) }; } catch (e) { return; } fxCache[m.id] = c; }
+    const q = c.q; if (!q || q.t * 1000 <= Date.parse(DATA.scan.at)) continue;
+    let price = q.c, low = el.dataset.low === '' ? null : Number(el.dataset.low);
+    if (m.proxy) price = m.px * q.c / m.proxyAt; // estimate from the matching fund
+    else if (q.l && dayOf(q.t * 1000, m.kind === 'Crypto') > Date.parse(el.dataset.day) / 864e5) low = low == null ? q.l : Math.min(low, q.l);
+    const st = fixedStatus({ trigger: Number(el.dataset.trig) }, price, low), se = el.querySelector('[data-fxst]'), ne = el.querySelector('[data-fxnow]');
+    if (se) { se.className = st[0]; se.textContent = st[1]; }
+    if (ne) ne.innerHTML = '<b>$' + p2(price) + '</b> <span class="mute">€' + (fx ? p2(price / fx) : '–') + '</span> <span class="good">● ' + (m.proxy ? 'est.' : 'live') + '</span>';
+  }
+}
+setInterval(() => { if (document.visibilityState === 'visible' && current() === 'home') liveFixed(); }, 60000);
 
 // Finnhub key in Settings (stored only on this phone)
 const renderSettingsBase = renderSettings;

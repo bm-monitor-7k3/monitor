@@ -195,6 +195,25 @@ function spark(series,c){
 }
 
 const GRP={'us-tech':'Tech','us-finance':'Finance','us-health':'Health','us-consumer':'Consumer','us-industrial':'Industrial','us-energy':'Energy','us-index':'Index','metals':'Metal'};
+// buy levels fixed at the bots' last daily check: what to use during the next day (they don't move)
+function fixedStatus(L,price,low){
+  if(low!=null&&low<=L.trigger)return ['good','✓ reached today (low $'+Number(low).toFixed(2)+')'];
+  if(price==null)return ['mute','–'];
+  if(price<=L.trigger)return ['good','✓ at or below the level now'];
+  const need=(L.trigger/price-1)*100;
+  return need>-1?['warn','close: '+need.toFixed(1)+'% to go']:['mute',need.toFixed(1)+'% to go'];
+}
+function renderFixed(sc){
+  const F=sc.fixed,Q=sc.quotes||{},fx=sc.eurusd;if(!F||!F.levels)return '';
+  const p2=n=>n==null?'–':Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const ue=v=>v==null?'–':'<b>$'+p2(v)+'</b> <span class="mute">€'+(fx?p2(v/fx):'–')+'</span>';
+  const when=new Date(F.at).toLocaleString([],{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+  let h='<div class="subh" style="border-top:0">Fixed buy levels: use these during the day</div><div class="pad mute" style="padding-top:2px;padding-bottom:8px;font-size:12.5px">Set at the bots’ check on '+esc(when)+'. They don’t move with the price: place your limit order at the level and leave it until the next check (21:45), then cancel it if it hasn’t filled.</div>';
+  if(!F.levels.length)return h+'<div class="empty">No dip-buy signals at that check.</div>';
+  return h+F.levels.map(L=>{const q=Q[L.name]||{},low=q.low!=null&&q.day>F.day?q.low:null,st=fixedStatus(L,q.price,low);
+    return '<details class="sig" data-fx="'+esc(L.name)+'" data-trig="'+L.trigger+'" data-day="'+esc(F.day)+'" data-low="'+(low==null?'':low)+'"><summary><div class="l"><div class="t">'+esc(L.name)+(L.bots.length?'<span class="rank">bots: '+esc(L.bots.join(','))+'</span>':'')+'</div><div class="s">'+esc(L.ticker||'')+' · RSI(2) '+L.rsi2+' · <span data-fxst class="'+st[0]+'">'+st[1]+'</span></div></div><div class="r num"><div class="s">buy if it dips to</div>'+ue(L.trigger)+'</div></summary>'+
+      '<div class="lv"><span>Buy if it dips to (−'+((1-L.trigger/L.price)*100).toFixed(1)+'% from the check price)</span><span class="num">'+ue(L.trigger)+'</span><span>Stop-loss</span><span class="num">'+ue(L.stop)+'</span><span>Now</span><span class="num" data-fxnow>'+ue(q.price)+'</span><span>Price at the check</span><span class="num">'+ue(L.price)+'</span><span style="grid-column:1/-1;color:var(--text)">Sell: on the first daily close above the 5-day average, or after 10 trading days. After you buy, add it to My trades and it tells you when.</span></div></details>';}).join('');
+}
 function renderSignals(sc){
   if(!sc)return '<div class="card"><h2>Today\'s signals</h2><div class="empty">Appears after the next bot run (or tap ⚙ › Run now).</div></div>';
   const p2=n=>n==null?'–':Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -202,6 +221,7 @@ function renderSignals(sc){
   const sect={};for(const s of sc.signals){const g=GRP[s.group]||s.group;sect[g]=(sect[g]||0)+1;}
   const top=Object.entries(sect).sort((a,b)=>b[1]-a[1])[0];
   let h='<div class="card"><h2>Today\'s signals <span>'+esc(new Date(sc.at).toLocaleString([],{weekday:'short',hour:'2-digit',minute:'2-digit'}))+'</span></h2>';
+  h+=renderFixed(sc)+'<div class="subh">Live preview: signals if the check were now (these levels move with the price)</div>';
   h+='<div class="pad" style="padding-bottom:8px;font-size:13px"><b>'+sc.signals.length+'</b> buy signal'+(sc.signals.length===1?'':'s')+' · <b>'+sc.near.length+'</b> close · '+sc.counts.up+' up / '+sc.counts.down+' down <span class="mute">(dip-buy rule, '+sc.scanned+' markets, prices at the last bot run)</span>'+
     (top&&top[1]>=3&&top[1]>=sc.signals.length*0.6?'<div class="banner warn" style="margin-top:8px">'+top[1]+' of '+sc.signals.length+' are '+esc(top[0])+' stocks: they move together, so several of them are close to one bigger bet.</div>':'')+'</div>';
   h+=sc.signals.length?sc.signals.map((s,i)=>'<details class="sig"><summary><div class="l"><div class="t">'+esc(s.name)+(i<4?'<span class="rank">#'+(i+1)+'</span>':'')+'</div><div class="s">'+esc(s.ticker||'')+' · '+esc(GRP[s.group]||s.group)+' · RSI(2) '+s.rsi2.toFixed(0)+'</div></div><div class="r num">'+ue(s.price)+'<div class="s">buy ≤ $'+p2(s.buyLimit)+' (−'+((1-s.buyLimit/s.price)*100).toFixed(1)+'%)</div></div></summary>'+
