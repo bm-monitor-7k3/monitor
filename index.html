@@ -214,13 +214,23 @@ function renderFixed(sc){
     return '<details class="sig" data-fx="'+esc(L.name)+'" data-trig="'+L.trigger+'" data-day="'+esc(F.day)+'" data-low="'+(low==null?'':low)+'"><summary><div class="l"><div class="t">'+esc(L.name)+(L.bots.length?'<span class="rank">bots: '+esc(L.bots.join(','))+'</span>':'')+'</div><div class="s">'+esc(L.ticker||'')+' · RSI(2) '+L.rsi2+(L.earnings?' · <span class="warn">⚠ earnings '+esc(L.earnings)+': rule skips it</span>':'')+' · <span data-fxst class="'+st[0]+'">'+st[1]+'</span></div></div><div class="r num"><div class="s">buy if it dips to</div>'+ue(L.trigger)+'</div></summary>'+
       '<div class="lv"><span>Buy if it dips to (−'+((1-L.trigger/L.price)*100).toFixed(1)+'% from the check price)</span><span class="num">'+ue(L.trigger)+'</span><span>Stop-loss</span><span class="num">'+ue(L.stop)+'</span><span>Now</span><span class="num" data-fxnow>'+ue(q.price)+'</span><span>Price at the check</span><span class="num">'+ue(L.price)+'</span><span style="grid-column:1/-1;color:var(--text)">Sell: on the first daily close above the 5-day average, or after 10 trading days. After you buy, add it to My trades and it tells you when.</span></div></details>';}).join('');
 }
+function renderRotation(R){
+  if(!R||!R.top3)return '';
+  const row=(x,i)=>'<div class="mini"><span><b>#'+(i+1)+' '+esc(x.label)+'</b></span><span class="num '+(x.score>0?'good':x.score<0?'bad':'mute')+'">'+(x.score>0?'+':'')+x.score.toFixed(1)+'%'+(x.above?'':' <span class="warn">· below 10-month avg</span>')+'</span></div>';
+  const hold=v=>v.hold.map(z=>'<b>'+esc(z.label)+'</b> '+z.pct+'%').join(' · ');
+  let h='<div class="card"><h2>Monthly rotation <span>'+esc(ago(R.at))+'</span></h2>';
+  h+='<div class="pad" style="font-size:13px;display:grid;gap:6px"><div>Bot A (top 3): '+hold(R.top3)+'</div><div>Bot B (top 2): '+hold(R.top2)+'</div><div>Bot D (top 3, 3/6/12-month): '+hold(R.blend3)+'</div></div>';
+  h+='<div class="subh">Ranking by 6-month gain</div>'+R.top3.ranked.map(row).join('');
+  h+='<div class="note">The bots’ strategy: on the first trading day of each month, hold the strongest ETFs in equal parts; one below its 10-month average is replaced by the bond ETF (IEF). Real ETFs, no leverage, a few trades a year. The ranking updates with every bot run, but the bots act only once a month. Not investment advice.</div></div>';
+  return h;
+}
 function renderSignals(sc){
-  if(!sc)return '<div class="card"><h2>Today\'s signals</h2><div class="empty">Appears after the next bot run (or tap ⚙ › Run now).</div></div>';
+  if(!sc)return '<div class="card"><h2>Dip-buy scanner (old strategy)</h2><div class="empty">Appears after the next bot run (or tap ⚙ › Run now).</div></div>';
   const p2=n=>n==null?'–':Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   const fx=sc.eurusd,ue=v=>v==null?'–':'<b>$'+p2(v)+'</b> <span class="mute">€'+(fx?p2(Number((v/fx).toFixed(2))):'–')+'</span>';
   const sect={};for(const s of sc.signals){const g=GRP[s.group]||s.group;sect[g]=(sect[g]||0)+1;}
   const top=Object.entries(sect).sort((a,b)=>b[1]-a[1])[0];
-  let h='<div class="card"><h2>Today\'s signals <span>'+esc(new Date(sc.at).toLocaleString([],{weekday:'short',hour:'2-digit',minute:'2-digit'}))+'</span></h2>';
+  let h='<div class="card"><h2>Dip-buy scanner (old strategy) <span>'+esc(new Date(sc.at).toLocaleString([],{weekday:'short',hour:'2-digit',minute:'2-digit'}))+'</span></h2>';
   h+=renderFixed(sc)+'<div class="subh">Live preview: signals if the check were now (these levels move with the price)</div>';
   h+='<div class="pad" style="padding-bottom:8px;font-size:13px"><b>'+sc.signals.length+'</b> buy signal'+(sc.signals.length===1?'':'s')+' · <b>'+sc.near.length+'</b> close · '+sc.counts.up+' up / '+sc.counts.down+' down <span class="mute">(dip-buy rule, '+sc.scanned+' markets, prices at the last bot run)</span>'+
     (top&&top[1]>=3&&top[1]>=sc.signals.length*0.6?'<div class="banner warn" style="margin-top:8px">'+top[1]+' of '+sc.signals.length+' are '+esc(top[0])+' stocks: they move together, so several of them are close to one bigger bet.</div>':'')+'</div>';
@@ -275,6 +285,7 @@ function renderHome(age){
   let h='';
   if(age>8)h+='<div class="banner warn">These figures are '+Math.floor(age)+' hours old: no bot run since then (normal at weekends for the dip-buy bots).</div>';
   h+='<div class="card pad total"><div><div class="mute" style="font-size:12px;text-transform:uppercase;letter-spacing:.07em">All bots together</div><div class="big num '+sgn(tot)+'">'+money(tot)+'</div><div class="mute" style="font-size:13px">on '+money(bud,false)+' · '+bots.length+' bots</div></div>'+chip(bud?tot/bud*100:0)+'</div>';
+  h+=renderRotation(DATA.rotation);
   h+=renderSignals(DATA.scan);
   h+=renderMyTrades(DATA.myTrades);
   h+=bots.map((b,i)=>{const s=b.summary,c=color(b.id,i);
