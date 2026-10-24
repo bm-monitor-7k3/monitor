@@ -224,6 +224,23 @@ function renderNews(N){
   if(b.watch.length)h+='<div class="subh">Watch</div>'+b.watch.slice(0,4).map(w=>'<div class="mini"><span class="s">'+esc(w)+'</span></div>').join('');
   return h+'<div class="note">Written by Claude from Finnhub headlines, once a day. Information only: the bots don’t trade on it.</div></div>';
 }
+const EVENT_INFO={'FOMC rate decision':'US central bank (Fed) interest-rate decision: often big moves in stocks, bonds and gold','US jobs report (NFP)':'monthly US jobs numbers: can move all markets at 14:30 German time','US inflation (CPI)':'monthly US inflation: a surprise moved markets strongly on 14 Oct'};
+function renderCalendar(C){
+  if(!C||!C.length)return '';
+  const dayKey=t=>new Date(t).toLocaleDateString([],{weekday:'short',day:'numeric',month:'short'});
+  const groups=[];for(const x of C){const k=x.kind==='event'?dayKey(x.at):dayKey(x.at+'T12:00:00');let g=groups.find(z=>z.k===k);if(!g){g={k,items:[]};groups.push(g);}g.items.push(x);}
+  const hour=h=>h==='bmo'?'before the US open':h==='amc'?'after the US close':'';
+  let h='<div class="card"><h2>Calendar <span>next 2 weeks</span></h2>';
+  for(const g of groups){
+    const ev=g.items.filter(x=>x.kind==='event'),mine=g.items.filter(x=>x.kind==='earnings'&&x.mine),big=g.items.filter(x=>x.kind==='earnings'&&!x.mine&&x.big),rest=g.items.filter(x=>x.kind==='earnings'&&!x.mine&&!x.big);
+    h+='<div class="subh">'+esc(g.k)+'</div>';
+    h+=ev.map(x=>'<div class="mini"><span><b>📅 '+esc(x.name)+'</b> <span class="s">'+esc(new Date(x.at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}))+'<br>'+esc(EVENT_INFO[x.name]||'')+'</span></span></div>').join('');
+    h+=mine.map(x=>'<div class="mini"><span><b>'+esc(x.name)+'</b> <span class="pill warn">your trade</span> <span class="s">earnings '+esc(hour(x.hour))+'</span></span></div>').join('');
+    h+=big.map(x=>'<div class="mini"><span><b>'+esc(x.name)+'</b> <span class="pill">big tech</span> <span class="s">earnings '+esc(hour(x.hour))+': moves the Nasdaq 100</span></span></div>').join('');
+    if(rest.length)h+='<div class="mini"><span class="s">Earnings: '+rest.map(x=>esc(x.name)).join(', ')+'</span></div>';
+  }
+  return h+'<div class="note">Times in your phone’s time zone. Earnings can make a stock jump 5-15% overnight. The dip-buy rule avoided stocks with earnings within 14 days; the ETF rotation is checked only once a month.</div></div>';
+}
 function renderRotation(R){
   if(!R||!R.top3)return '';
   const row=(x,i)=>'<div class="mini"><span><b>#'+(i+1)+' '+esc(x.label)+'</b></span><span class="num '+(x.score>0?'good':x.score<0?'bad':'mute')+'">'+(x.score>0?'+':'')+x.score.toFixed(1)+'%'+(x.above?'':' <span class="warn">· below 10-month avg</span>')+'</span></div>';
@@ -297,6 +314,7 @@ function renderHome(age){
   h+='<div class="card pad total"><div><div class="mute" style="font-size:12px;text-transform:uppercase;letter-spacing:.07em">All bots together</div><div class="big num '+sgn(tot)+'">'+money(tot)+'</div><div class="mute" style="font-size:13px">on '+money(bud,false)+' · '+bots.length+' bots</div></div>'+chip(bud?tot/bud*100:0)+'</div>';
   h+=renderNews(DATA.news);
   h+=renderRotation(DATA.rotation);
+  h+=renderCalendar(DATA.calendar);
   h+=renderSignals(DATA.scan);
   h+=renderMyTrades(DATA.myTrades);
   h+=bots.map((b,i)=>{const s=b.summary,c=color(b.id,i);
