@@ -214,6 +214,16 @@ function renderFixed(sc){
     return '<details class="sig" data-fx="'+esc(L.name)+'" data-trig="'+L.trigger+'" data-day="'+esc(F.day)+'" data-low="'+(low==null?'':low)+'"><summary><div class="l"><div class="t">'+esc(L.name)+(L.bots.length?'<span class="rank">bots: '+esc(L.bots.join(','))+'</span>':'')+'</div><div class="s">'+esc(L.ticker||'')+' · RSI(2) '+L.rsi2+(L.earnings?' · <span class="warn">⚠ earnings '+esc(L.earnings)+': rule skips it</span>':'')+' · <span data-fxst class="'+st[0]+'">'+st[1]+'</span></div></div><div class="r num"><div class="s">buy if it dips to</div>'+ue(L.trigger)+'</div></summary>'+
       '<div class="lv"><span>Buy if it dips to (−'+((1-L.trigger/L.price)*100).toFixed(1)+'% from the check price)</span><span class="num">'+ue(L.trigger)+'</span><span>Stop-loss</span><span class="num">'+ue(L.stop)+'</span><span>Now</span><span class="num" data-fxnow>'+ue(q.price)+'</span><span>Price at the check</span><span class="num">'+ue(L.price)+'</span><span style="grid-column:1/-1;color:var(--text)">Sell: on the first daily close above the 5-day average, or after 10 trading days. After you buy, add it to My trades and it tells you when.</span></div></details>';}).join('');
 }
+function renderNews(N){
+  if(!N||!N.brief)return '';
+  const b=N.brief,mood={'risk-on':['good','risk-on'],neutral:['mute','neutral'],'risk-off':['bad','risk-off']}[b.mood]||['mute',b.mood];
+  let h='<div class="card"><h2>News brief <span>'+esc(ago(N.at))+'</span></h2><div class="pad" style="display:grid;gap:8px;font-size:13.5px"><div><span class="pill '+mood[0]+'">'+esc(mood[1])+'</span> <b>'+esc(b.headline)+'</b></div>';
+  h+=b.keyPoints.slice(0,5).map(k=>'<div><b>'+esc(k.title)+'</b><div class="mute" style="font-size:12.5px">'+esc(k.why)+'</div></div>').join('')+'</div>';
+  if(b.forBots.length)h+='<div class="subh">For the bots</div>'+b.forBots.map(x=>'<div class="mini"><span><b>'+esc(x.asset)+'</b> <span class="s">'+esc(x.note)+'</span></span></div>').join('');
+  if(b.forMyTrades.length)h+='<div class="subh">For your trades</div>'+b.forMyTrades.map(x=>'<div class="mini"><span><b class="'+(x.tone==='good'?'good':x.tone==='bad'?'bad':'')+'">'+esc(x.name)+'</b> <span class="s">'+esc(x.note)+'</span></span></div>').join('');
+  if(b.watch.length)h+='<div class="subh">Watch</div>'+b.watch.slice(0,4).map(w=>'<div class="mini"><span class="s">'+esc(w)+'</span></div>').join('');
+  return h+'<div class="note">Written by Claude from Finnhub headlines, once a day. Information only: the bots don’t trade on it.</div></div>';
+}
 function renderRotation(R){
   if(!R||!R.top3)return '';
   const row=(x,i)=>'<div class="mini"><span><b>#'+(i+1)+' '+esc(x.label)+'</b></span><span class="num '+(x.score>0?'good':x.score<0?'bad':'mute')+'">'+(x.score>0?'+':'')+x.score.toFixed(1)+'%'+(x.above?'':' <span class="warn">· below 10-month avg</span>')+'</span></div>';
@@ -285,6 +295,7 @@ function renderHome(age){
   let h='';
   if(age>8)h+='<div class="banner warn">These figures are '+Math.floor(age)+' hours old: no bot run since then (normal at weekends for the dip-buy bots).</div>';
   h+='<div class="card pad total"><div><div class="mute" style="font-size:12px;text-transform:uppercase;letter-spacing:.07em">All bots together</div><div class="big num '+sgn(tot)+'">'+money(tot)+'</div><div class="mute" style="font-size:13px">on '+money(bud,false)+' · '+bots.length+' bots</div></div>'+chip(bud?tot/bud*100:0)+'</div>';
+  h+=renderNews(DATA.news);
   h+=renderRotation(DATA.rotation);
   h+=renderSignals(DATA.scan);
   h+=renderMyTrades(DATA.myTrades);
