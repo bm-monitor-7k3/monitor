@@ -107,6 +107,17 @@ function checkMarket(m, q) {
   const yr = rows.slice(-252), hi52 = Math.max(...yr.map(r => r.high)), lo52 = Math.min(...yr.map(r => r.low));
   const chg = k => n > k ? (px / c[n - 1 - k] - 1) * 100 : null;
   let crossDays = null; if (e200[n - 1] != null) { const up = e50[n - 1] > e200[n - 1]; for (let i = n - 2; i >= 0 && e200[i] != null; i--) if ((e50[i] > e200[i]) !== up) { crossDays = n - 1 - i; break; } }
+  // a >= 8% one-day drop in the last 6 trading days (often earnings): the historical odds (gap-test.js)
+  let bigDrop = null;
+  for (let j = n - 1; j >= Math.max(202, n - 6); j--) {
+    const one = c[j] / c[j - 1] - 1, two = c[j] / c[j - 2] - 1, chg = Math.min(one, two);
+    if (chg <= -0.08) {
+      const pre = two < one ? j - 2 : j - 1, s200b = c.slice(pre - 199, pre + 1).reduce((a, b) => a + b, 0) / 200, up = c[pre] > s200b;
+      bigDrop = { date: new Date(rows[j].ts).toISOString().slice(0, 10), days: two < one ? 2 : 1, pct: Number((chg * 100).toFixed(1)), trendBefore: up ? 'up' : 'down',
+        odds: up ? "History (2,097 such drops in uptrends, 2007-2026): after 5 days 50% were higher; after 20 days the median was +1.1% (54% higher); after 60 days 60% were higher; 61% got back above the pre-drop price within 60 days. About the same as buying on any day, with bigger swings." : chg <= -0.15 ? "History (177 drops of 15% or more in stocks already in a downtrend, 2007-2026): after 5 days only 44% were higher; after 20 days the median was -0.9% (47% higher); 62% had not got back to the pre-drop price after 60 days. These usually kept falling." : "History (1,689 such drops of 8-15% in stocks already in a downtrend, 2007-2026): after 5 days 49% were higher; after 20 days the median was +1.0% (53% higher); after 60 days 56% were higher; about a third had not got back to the pre-drop price after 60 days. Riskier than a normal dip; the dip-buy rule does not buy downtrends." };
+      break;
+    }
+  }
   const isStock = m.kind === 'Stocks', isCrypto = m.kind === 'Crypto';
   const r4 = v => v == null ? null : Number(v.toFixed(4));
   const lv = (label, v, note) => ({ label, local: r4(v), usd: r4(toUSD(v)), eur: r4(toEUR(v)), note });
@@ -148,7 +159,7 @@ function checkMarket(m, q) {
     : rules[0].status === 'NO BUY' ? { text: 'Downtrend: no buy by our rules', tone: 'bad' } : rules[0].status === 'SKIP' ? { text: 'Too calm for our dip-buy rule', tone: 'warn' } : { text: 'No signal now: wait', tone: 'mute' };
   const prevClose = forming ? done.at(-1).close : done.at(-2) && done.at(-2).close;
   return {
-    market: m, P, rules, verdict,
+    market: m, P, rules, verdict, bigDrop,
     price: { ...lv('Price', px), eurusd, forming, lastClose: done.at(-1) ? new Date(done.at(-1).ts).toISOString().slice(0, 10) : null, dayChangePct: prevClose ? (px / prevClose - 1) * 100 : null, spreadPct: m.bid && m.ask ? (m.ask - m.bid) / m.px * 100 : null },
     stats: { rsi2, atrPct, chg1m: chg(21), chg3m: chg(63), chg1y: chg(252), hi52: lv('52-week high', hi52), lo52: lv('52-week low', lo52) },
     earnings: m.earn ? { date: m.earn, days: earnDays } : null,
@@ -217,6 +228,8 @@ function renderStock(d, qerr) {
     '<div style="text-align:right"><div class="sprice num">' + twoCur(p) + '</div><div class="mute" style="font-size:12px">' + (p.dayChangePct != null ? 'today ' + pc(p.dayChangePct) + ' · ' : '') + '1 € = $' + (p.eurusd ? p.eurusd.toFixed(4) : '–') + '</div></div></div>';
   h += '<div style="display:flex;gap:10px;align-items:center;font-size:12.5px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--card2)"><div style="flex:1;min-width:0">' + fresh + '</div><button class="btn" data-act="again" style="padding:4px 10px;font-size:13px" title="Get the price again">⟳</button></div>';
   h += '<div class="verdict ' + d.verdict.tone + '">' + esc(d.verdict.text) + (m.kind === 'Stocks' && m.us ? '<span class="vnote"> · the bots decide on the price at 15:45 New York (21:45 German time); during the day this can still change</span>' : '') + (!p.forming ? '<span class="vnote"> · market closed today: based on the last close (' + esc(p.lastClose) + ')</span>' : '') + '</div>';
+  if (d.bigDrop) { const b = d.bigDrop; h += '<div class="verdict warn" style="font-weight:500"><b>Big drop: ' + b.pct + '% ' + (b.days === 2 ? 'in 2 days to ' : 'on ') + esc(b.date) + '</b> (in ' + (b.trendBefore === 'up' ? 'an uptrend' : 'a stock already in a downtrend') + '; often earnings). ' + esc(b.odds) + '</div>'; }
+  if (m.analyst) { const A = m.analyst, cv = m.cv || 1, fx = MK.eurusd, tl = A.target / cv; h += '<div class="sfacts"><div><span>Analysts (TipRanks)</span><b class="num">' + esc(A.consensus || '–') + ' <span class="mute">(' + (A.buy ?? '?') + ' buy · ' + (A.hold ?? '?') + ' hold · ' + (A.sell ?? '?') + ' sell)</span></b></div><div><span>Average 12-month target</span><b class="num">$' + f2(A.target) + ' <span class="mute">€' + (fx ? f2(A.target / fx) : '–') + '</span> <span class="' + (tl > d.P.px ? 'good' : 'bad') + '">' + ((tl / d.P.px - 1) * 100 > 0 ? '+' : '') + ((tl / d.P.px - 1) * 100).toFixed(0) + '%</span></b></div>' + (A.low && A.high ? '<div><span>Lowest / highest target</span><b class="num">$' + f2(A.low) + ' – $' + f2(A.high) + '</b></div>' : '') + '</div><div class="mute" style="font-size:11.5px">Analyst targets are 12-month opinions, updated once a day; they tend to be optimistic and many are never reached.</div>'; }
   h += '<div class="rulegrid">' + d.rules.map(r => '<div class="rule"><div class="rh"><b>' + esc(r.name) + '</b><span class="pill ' + r.tone + '">' + esc(r.status) + '</span></div><div class="rt">' + esc(r.text) + '</div>' +
     (r.levels.length ? '<table class="lvl">' + r.levels.map(l => '<tr><td>' + esc(l.label) + (l.note ? ' <span class="mute">(' + esc(l.note) + ')</span>' : '') + '</td><td class="num">' + twoCur(l) + '</td></tr>').join('') + '</table>' : '') +
     (r.tested ? '<div class="mute" style="font-size:11.5px">' + esc(r.tested) + '</div>' : '') + '</div>').join('') + '</div>';
