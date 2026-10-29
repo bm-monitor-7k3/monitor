@@ -268,13 +268,17 @@ function renderSignals(sc){
   h+='<div class="note">Buy only if the price reaches the buy level (a limit order, valid until the next day’s close): in our tests that made each trade about 3× as profitable as buying straight away. On a € broker, use the % below the current price. The bots decide on the 21:45 price (German time). Fresh figures: ⚙ › Run now. Not investment advice.</div></div>';
   return h;
 }
+function mtWhatIf(t){
+  if(!t.whatIf||!t.whatIf.length)return '';
+  const c=t.buyCurrency==='EUR'?'€':'$';
+  return '<span style="grid-column:1/-1;font-weight:700;color:var(--text);margin-top:6px">What you get with each rule'+(t.qty?' ('+t.qty+' shares, before fees)':' (enter the shares to see amounts)')+'</span>'+t.whatIf.map(w=>'<span>'+esc(w.label)+' <span class="mute">at '+c+p2v(w.price)+'</span></span><span class="num '+(w.pct>0?'good':w.pct<0?'bad':'mute')+'"><b>'+(w.pnl!=null?(w.pnl>=0?'+':'−')+c+p2v(Math.abs(w.pnl)):'')+'</b> '+(w.pct>0?'+':'')+w.pct+'%</span>').join('');
+}
 function mtDetails(t){
   const ue=v=>v?'<b>€'+p2v(v.eur)+'</b> <span class="mute">$'+p2v(v.usd)+'</span>':'–',P=t.patient,A=t.analyst,E=t.earnings,head=s=>'<span style="grid-column:1/-1;font-weight:700;color:var(--text);margin-top:6px">'+s+'</span>';
-  let h='';
-  if(P){h+=head('Patient rule: half and half (max 30 days) <span class="pill '+(P.verdict==='HOLD REST'?'':'warn')+'">'+esc(P.verdict)+'</span>');
-    h+='<span>First half: first close above the 5-day avg</span><span class="num">'+(P.halfAt?ue(P.halfAt.price)+' <span class="mute">'+esc(P.halfAt.date)+'</span>':'not yet')+'</span>';
-    h+='<span>Rest: back at the pre-dip high</span><span class="num">'+ue(P.preHigh)+' <span class="'+(P.toHighPct<=3?'good':'mute')+'">'+(P.toHighPct>0?'+':'')+P.toHighPct+'%</span></span>';
-    h+='<span>Days left</span><span class="num">'+P.daysLeft+' (until about '+esc(P.until)+')</span>';}
+  let h=mtWhatIf(t);
+  if(P){h+=head('Patient rule: everything at the pre-dip high (max 60 days) <span class="pill '+(P.verdict==='HOLD'?'':'warn')+'">'+esc(P.verdict)+'</span>');
+    h+='<span>Sell everything at the pre-dip high</span><span class="num">'+ue(P.preHigh)+' <span class="'+(P.toHighPct<=3?'good':'mute')+'">'+(P.toHighPct>0?'+':'')+P.toHighPct+'%</span></span>';
+    h+='<span>At most</span><span class="num">'+P.daysLeft+' more trading days (until about '+esc(P.until)+')</span>';}
   if(A){h+=head('Analysts (TipRanks, 12-month targets)');
     h+='<span>Rating</span><span class="num">'+esc(A.consensus||'–')+' <span class="mute">('+(A.buy??'?')+' buy · '+(A.hold??'?')+' hold · '+(A.sell??'?')+' sell)</span></span>';
     h+='<span>Average target</span><span class="num">'+ue(A.target)+' <span class="mute">'+(A.upsidePct>0?'+':'')+A.upsidePct+'%</span></span>';
@@ -298,7 +302,7 @@ function renderMyTrades(mt){
     '<input id="mtsym" placeholder="Stock: symbol or name, e.g. NVDA" autocomplete="off" required>'+
     '<div style="display:grid;grid-template-columns:1fr auto;gap:8px"><input id="mtprice" inputmode="decimal" placeholder="Buy price, e.g. 199.50" required><select id="mtcur" style="font:inherit;padding:10px;border-radius:11px;border:1px solid var(--line);background:var(--card2);color:var(--text)"><option value="EUR">€</option><option value="USD">$</option></select></div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><input id="mtdate" type="date"><input id="mtqty" inputmode="decimal" placeholder="Shares (optional)"></div>'+
-    '<button class="btn primary" type="submit">Add</button><div class="mute" style="font-size:12px">Saved through GitHub: it shows here after about 2 minutes. Checked after every run with two sell rules (quick and patient), with analyst targets and earnings dates; Telegram list each evening. History: after a dip, stocks needed a median of 28 trading days to get back to the pre-dip high (17% within 10 days, 20% not within a year). Analyst targets are 12-month opinions and tend to be optimistic: many are never reached.</div></form>';
+    '<button class="btn primary" type="submit">Add</button><div class="mute" style="font-size:12px">Saved through GitHub: it shows here after about 2 minutes. Checked after every run with two sell rules (quick: 5-day average, max 10 days; patient: everything at the pre-dip high, max 60 days), with analyst targets and earnings dates; Telegram list each evening. History: after a dip, stocks needed a median of 28 trading days to get back to the pre-dip high (17% within 10 days, 20% not within a year). Analyst targets are 12-month opinions and tend to be optimistic: many are never reached.</div></form>';
   return h+'</div>';
 }
 const p2v=n=>n==null?'–':Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
