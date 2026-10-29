@@ -268,13 +268,29 @@ function renderSignals(sc){
   h+='<div class="note">Buy only if the price reaches the buy level (a limit order, valid until the next day’s close): in our tests that made each trade about 3× as profitable as buying straight away. On a € broker, use the % below the current price. The bots decide on the 21:45 price (German time). Fresh figures: ⚙ › Run now. Not investment advice.</div></div>';
   return h;
 }
+function mtDetails(t){
+  const ue=v=>v?'<b>€'+p2v(v.eur)+'</b> <span class="mute">$'+p2v(v.usd)+'</span>':'–',P=t.patient,A=t.analyst,E=t.earnings,head=s=>'<span style="grid-column:1/-1;font-weight:700;color:var(--text);margin-top:6px">'+s+'</span>';
+  let h='';
+  if(P){h+=head('Patient rule: half and half (max 30 days) <span class="pill '+(P.verdict==='HOLD REST'?'':'warn')+'">'+esc(P.verdict)+'</span>');
+    h+='<span>First half: first close above the 5-day avg</span><span class="num">'+(P.halfAt?ue(P.halfAt.price)+' <span class="mute">'+esc(P.halfAt.date)+'</span>':'not yet')+'</span>';
+    h+='<span>Rest: back at the pre-dip high</span><span class="num">'+ue(P.preHigh)+' <span class="'+(P.toHighPct<=3?'good':'mute')+'">'+(P.toHighPct>0?'+':'')+P.toHighPct+'%</span></span>';
+    h+='<span>Days left</span><span class="num">'+P.daysLeft+' (until about '+esc(P.until)+')</span>';}
+  if(A){h+=head('Analysts (TipRanks, 12-month targets)');
+    h+='<span>Rating</span><span class="num">'+esc(A.consensus||'–')+' <span class="mute">('+(A.buy??'?')+' buy · '+(A.hold??'?')+' hold · '+(A.sell??'?')+' sell)</span></span>';
+    h+='<span>Average target</span><span class="num">'+ue(A.target)+' <span class="mute">'+(A.upsidePct>0?'+':'')+A.upsidePct+'%</span></span>';
+    if(A.low&&A.high)h+='<span>Lowest / highest target</span><span class="num">€'+p2v(A.low.eur)+' / €'+p2v(A.high.eur)+'</span>';}
+  if(E)h+=head('Next earnings')+'<span>'+(E.days<=14?'<b class="warn">⚠ in '+E.days+' days</b>':'in '+E.days+' days')+'</span><span class="num">'+esc(E.date)+' '+esc(E.when)+'</span>';
+  if(t.hi52)h+='<span>52-week low / high</span><span class="num">€'+p2v(t.lo52.eur)+' / €'+p2v(t.hi52.eur)+'</span>';
+  return h;
+}
 function renderMyTrades(mt){
   const ue=v=>v?'<b>$'+p2v(v.usd)+'</b> <span class="mute">€'+p2v(v.eur)+'</span>':'–';
   const trades=(mt&&mt.trades)||[],open=trades.filter(t=>t.status==='open'),closed=trades.filter(t=>t.status!=='open');
   let h='<div class="card" id="mtcard"><h2>My trades <span>'+(mt?esc(ago(mt.at)):'')+'</span></h2>';
   for(const w of (mt&&mt.sectorWarn)||[])h+='<div class="banner warn" style="margin:10px 16px 0">'+w.count+' of your open trades are '+esc(w.sector)+' stocks ('+esc(w.names.join(', '))+'): they rise and fall together, so this is close to one bigger bet. Before adding another, prefer a different sector or an index.</div>';
   h+=open.length?open.map(t=>'<details class="sig"><summary><div class="l"><div class="t">'+esc(t.name)+'</div><div class="s"><span class="pill '+(t.tone||'mute')+'">'+esc(t.verdict||'')+'</span> day '+(t.daysHeld==null?'–':t.daysHeld)+' of 10</div></div><div class="r num"><b class="'+(t.pnlPct>0?'good':t.pnlPct<0?'bad':'mute')+'">'+(t.pnlPct==null?'–':(t.pnlPct>0?'+':'')+t.pnlPct.toFixed(2)+'%')+'</b>'+(t.pnlEur!=null?'<div class="s">'+(t.pnlEur>=0?'+':'−')+'€'+p2v(Math.abs(t.pnlEur))+'</div>':'')+'</div></summary>'+
-    '<div class="lv"><span>Now</span><span class="num">'+ue(t.now)+'</span><span>Sell on a close above</span><span class="num">'+ue(t.sellLevel)+'</span><span>Stop</span><span class="num">'+ue(t.stop)+'</span><span>Bought</span><span class="num">'+(t.buyCurrency==='EUR'?'€':'$')+p2v(t.buyPrice)+(t.qty?' × '+t.qty:'')+' · '+esc(t.boughtAt)+'</span>'+
+    '<div class="lv"><span>Now</span><span class="num">'+ue(t.now)+'</span><span style="grid-column:1/-1;font-weight:700;color:var(--text);margin-top:4px">Quick rule (bots, max 10 days)</span>'+
+    '<span>Sell on a close above</span><span class="num">'+ue(t.sellLevel)+'</span><span>Stop</span><span class="num">'+ue(t.stop)+'</span><span>Bought</span><span class="num">'+(t.buyCurrency==='EUR'?'€':'$')+p2v(t.buyPrice)+(t.qty?' × '+t.qty:'')+' · '+esc(t.boughtAt)+'</span>'+mtDetails(t)+
     '<span style="grid-column:1/-1;color:var(--text)">'+esc(t.text||'')+'</span><span style="grid-column:1/-1;display:flex;gap:8px"><button class="btn" data-sell="'+esc(t.id)+'" data-cur="'+esc(t.buyCurrency)+'" data-name="'+esc(t.name)+'">Sold…</button><button class="btn" data-del="'+esc(t.id)+'" data-name="'+esc(t.name)+'">Delete</button></span></div></details>').join('')
     :'<div class="empty">No open trades. Add one you bought on your broker below.</div>';
   if(closed.length)h+='<div class="subh">Closed</div>'+closed.slice(-8).reverse().map(t=>'<div class="mini"><span><b>'+esc(t.name)+'</b> <span class="s">'+esc(t.boughtAt)+' → '+esc(t.closedAt||'')+'</span></span><span class="num '+(t.pnlPct>0?'good':t.pnlPct<0?'bad':'mute')+'">'+(t.pnlPct==null?'–':(t.pnlPct>0?'+':'')+t.pnlPct.toFixed(2)+'%')+'</span></div>').join('');
@@ -282,7 +298,7 @@ function renderMyTrades(mt){
     '<input id="mtsym" placeholder="Stock: symbol or name, e.g. NVDA" autocomplete="off" required>'+
     '<div style="display:grid;grid-template-columns:1fr auto;gap:8px"><input id="mtprice" inputmode="decimal" placeholder="Buy price, e.g. 199.50" required><select id="mtcur" style="font:inherit;padding:10px;border-radius:11px;border:1px solid var(--line);background:var(--card2);color:var(--text)"><option value="EUR">€</option><option value="USD">$</option></select></div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><input id="mtdate" type="date"><input id="mtqty" inputmode="decimal" placeholder="Shares (optional)"></div>'+
-    '<button class="btn primary" type="submit">Add</button><div class="mute" style="font-size:12px">Saved through GitHub: it shows here after about 2 minutes. Checked with the bots’ sell rules after every run; Telegram list each evening.</div></form>';
+    '<button class="btn primary" type="submit">Add</button><div class="mute" style="font-size:12px">Saved through GitHub: it shows here after about 2 minutes. Checked after every run with two sell rules (quick and patient), with analyst targets and earnings dates; Telegram list each evening. History: after a dip, stocks needed a median of 28 trading days to get back to the pre-dip high (17% within 10 days, 20% not within a year). Analyst targets are 12-month opinions and tend to be optimistic: many are never reached.</div></form>';
   return h+'</div>';
 }
 const p2v=n=>n==null?'–':Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
